@@ -51,13 +51,14 @@ requires a real HTTP origin, not `file://`), serve the `src/ui` directory
 with any static server:
 
 ```bash
-npx serve src/ui
-# or
-python3 -m http.server --directory src/ui 8080
+npm install
+npm run dev
 ```
 
 Then open the printed URL. Drop an `.amr`, `.wav`, `.mp3`, etc. file onto
-the player.
+the player. Vite is required because it bundles the browser-side FFmpeg
+modules used to decode AMR files. Deployments run `npm run build` and serve
+the generated `dist` folder.
 
 ## Swapping in RNNoise instead of the Wiener filter
 

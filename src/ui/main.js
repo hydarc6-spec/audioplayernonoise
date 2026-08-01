@@ -1,4 +1,4 @@
-import { AudioEngine } from '../engine/AudioEngine.js';
+import { AudioEngine } from './engine/AudioEngine.js';
 import { renderControls } from './components/Controls.js';
 import { WaveformView } from './components/WaveformView.js';
 import { SpectrumView } from './components/SpectrumView.js';
