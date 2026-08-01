@@ -72,6 +72,17 @@ export function renderControls(container, initialSettings, onChange) {
   );
 
   container.appendChild(
+    _card('Quiet-Section Noise Gate', initialSettings.voiceGateEnabled, (enabled) =>
+      onChange({ voiceGateEnabled: enabled }),
+      [
+        _slider('Noise cut', 0, 100, initialSettings.voiceGateAmount, 1, (v) =>
+          onChange({ voiceGateAmount: v })
+        ),
+      ]
+    )
+  );
+
+  container.appendChild(
     _card('Soft Limiter', initialSettings.limiterEnabled, (enabled) =>
       onChange({ limiterEnabled: enabled })
     )

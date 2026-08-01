@@ -45,13 +45,15 @@ export class AudioEngine {
     return {
       dcBlockerEnabled: true,
       highPassEnabled: true,
-      highPassCutoffHz: 80,
+      highPassCutoffHz: 110,
       notchEnabled: true,
       notchMode: 'auto', // 'auto' | 50 | 60
       noiseSuppressionEnabled: true,
-      noiseReductionStrength: 90, // 0-100 — default to aggressive (~90%) noise cut
+      noiseReductionStrength: 78, // Strong fan/hiss reduction without hollow speech.
       voiceEnhancementEnabled: true,
-      voiceEnhancement: 70, // 0-100 — a bit more speech-forward to compensate for the aggressive cut
+      voiceEnhancement: 45,
+      voiceGateEnabled: true,
+      voiceGateAmount: 60,
       agcEnabled: true,
       limiterEnabled: true,
     };

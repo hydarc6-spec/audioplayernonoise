@@ -18,8 +18,10 @@
 /** Cheap single-frequency energy estimator (Goertzel algorithm). */
 function goertzelPower(block, sampleRate, targetFreq) {
   const N = block.length;
-  const k = Math.round((N * targetFreq) / sampleRate);
-  const w = (2 * Math.PI * k) / N;
+  // Evaluate the requested frequency directly instead of snapping it to an
+  // FFT bin. Snapping a 128-sample block at 48 kHz makes both 50 and 60 Hz
+  // become bin zero, so the old detector could never choose correctly.
+  const w = (2 * Math.PI * targetFreq) / sampleRate;
   const cosine = Math.cos(w);
   const coeff = 2 * cosine;
   let s1 = 0, s2 = 0;
@@ -85,6 +87,8 @@ export class AdaptiveNotchFilter {
     // Auto-detection is smoothed across blocks to avoid flip-flopping.
     this._autoScoreEMA50 = 0;
     this._autoScoreEMA60 = 0;
+    this._autoBuffer = new Float32Array(2048);
+    this._autoBufferPos = 0;
   }
 
   _rebuildStages() {
@@ -106,10 +110,16 @@ export class AdaptiveNotchFilter {
   }
 
   _updateAutoDetection(block) {
-    // Exponential moving average of hum-band energy; ~0.1s time constant
-    // at typical block sizes keeps this stable against short-term speech energy.
-    const p50 = goertzelPower(block, this.sampleRate, 50);
-    const p60 = goertzelPower(block, this.sampleRate, 60);
+    // 50/60 Hz needs more than a 128-sample audio quantum to distinguish
+    // reliably. Analyse a short rolling window (~43 ms at 48 kHz).
+    const remaining = this._autoBuffer.length - this._autoBufferPos;
+    const copied = Math.min(remaining, block.length);
+    this._autoBuffer.set(block.subarray(0, copied), this._autoBufferPos);
+    this._autoBufferPos += copied;
+    if (this._autoBufferPos < this._autoBuffer.length) return;
+    const p50 = goertzelPower(this._autoBuffer, this.sampleRate, 50);
+    const p60 = goertzelPower(this._autoBuffer, this.sampleRate, 60);
+    this._autoBufferPos = 0;
     const alpha = 0.05;
     this._autoScoreEMA50 += alpha * (p50 - this._autoScoreEMA50);
     this._autoScoreEMA60 += alpha * (p60 - this._autoScoreEMA60);

@@ -24,6 +24,7 @@ export class OverlapAddFramework {
     // Circular input ring buffer + output accumulation buffer.
     this._inputRing = new Float32Array(this.frameSize);
     this._outputAccum = new Float32Array(this.frameSize);
+    this._normalizationAccum = new Float32Array(this.frameSize);
     this._writePos = 0;
     this._samplesSinceFrame = 0;
 
@@ -75,12 +76,23 @@ export class OverlapAddFramework {
     // for a proper COLA reconstruction).
     for (let i = 0; i < N; i++) {
       this._outputAccum[i] += this._re[i] * this.window[i];
+      this._normalizationAccum[i] += this.window[i] * this.window[i];
     }
 
     // The oldest H samples of the accumulator are now finished (no more
     // future frames will contribute to them) -> emit as output.
-    outBlock.set(this._outputAccum.subarray(0, H));
+    for (let i = 0; i < H; i++) {
+      outBlock[i] = this._outputAccum[i] / Math.max(this._normalizationAccum[i], 1e-8);
+    }
     this._outputAccum.copyWithin(0, H, N);
+    this._normalizationAccum.copyWithin(0, H, N);
     this._outputAccum.fill(0, N - H, N);
+    this._normalizationAccum.fill(0, N - H, N);
+  }
+
+  reset() {
+    this._inputRing.fill(0);
+    this._outputAccum.fill(0);
+    this._normalizationAccum.fill(0);
   }
 }

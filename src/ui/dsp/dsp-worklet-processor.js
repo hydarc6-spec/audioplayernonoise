@@ -28,9 +28,7 @@ class DenoiseProcessor extends AudioWorkletProcessor {
       if (type === 'settings') {
         this._pipeline.applySettings(payload);
       } else if (type === 'reset') {
-        this._pipeline.dcBlocker.reset();
-        this._pipeline.highPass.reset();
-        this._pipeline.agc.reset();
+        this._pipeline.reset();
       }
     };
   }

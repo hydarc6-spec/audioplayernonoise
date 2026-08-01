@@ -24,6 +24,8 @@ export class SpectralNoiseSuppressor {
     this.strength = 0.5; // 0..1, UI-controlled
     this._numBins = fftSize / 2 + 1;
     this._noiseFloor = new Float32Array(this._numBins).fill(1e-4);
+    this._mag = new Float32Array(this._numBins);
+    this._smoothedGain = new Float32Array(this._numBins).fill(1);
     // Ring of recent magnitudes per bin for the running-minimum estimate.
     this._minHistoryLen = 12; // ~12 frames * (128/48000)s hop-equivalent window
     this._minHistory = [];
@@ -63,17 +65,22 @@ export class SpectralNoiseSuppressor {
     const numBins = this._numBins;
     const N = re.length;
 
-    const mag = new Float32Array(numBins);
-    const phaseRe = new Float32Array(numBins);
-    const phaseIm = new Float32Array(numBins);
+    const mag = this._mag;
+    let magnitudeSum = 0;
+    let peakMagnitude = 0;
     for (let b = 0; b < numBins; b++) {
       const m = Math.hypot(re[b], im[b]) || 1e-9;
       mag[b] = m;
-      phaseRe[b] = re[b] / m;
-      phaseIm[b] = im[b] / m;
+      magnitudeSum += m;
+      if (m > peakMagnitude) peakMagnitude = m;
     }
 
-    this._updateNoiseEstimate(mag);
+    // A voiced frame has a few strong harmonic peaks, unlike steady fan
+    // noise. Do not add those peaks to the noise model: doing so causes the
+    // model to alternately remove and restore a clean voice every STFT hop.
+    const meanMagnitude = magnitudeSum / numBins;
+    const voicedFrame = peakMagnitude > meanMagnitude * 6;
+    if (!voicedFrame) this._updateNoiseEstimate(mag);
 
     // Over-subtraction factor and spectral floor both scale with `strength`:
     // higher strength => subtract more of the noise estimate, and allow the
@@ -82,11 +89,18 @@ export class SpectralNoiseSuppressor {
     const spectralFloor = 0.25 - 0.2 * this.strength; // 0.25 (gentle) .. 0.05 (aggressive)
 
     for (let b = 0; b < numBins; b++) {
-      const subtracted = mag[b] - overSubtraction * this._noiseFloor[b];
-      const floor = spectralFloor * mag[b];
-      const newMag = Math.max(subtracted, floor);
-      re[b] = newMag * phaseRe[b];
-      im[b] = newMag * phaseIm[b];
+      const targetGain = Math.max(
+        1 - (overSubtraction * this._noiseFloor[b]) / Math.max(mag[b], 1e-9),
+        spectralFloor
+      );
+      const previousGain = this._smoothedGain[b];
+      // Let speech onsets recover promptly, but turn noise down gradually.
+      // This removes the audible frame-to-frame "jumping" or pumping.
+      const smoothing = targetGain > previousGain ? 0.45 : 0.15;
+      const gain = previousGain + smoothing * (targetGain - previousGain);
+      this._smoothedGain[b] = gain;
+      re[b] *= gain;
+      im[b] *= gain;
     }
 
     // Rebuild the conjugate-symmetric upper half so the inverse FFT of a

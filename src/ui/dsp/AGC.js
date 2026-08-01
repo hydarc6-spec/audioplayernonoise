@@ -24,7 +24,7 @@ export class AGC {
 
     this._envelope = targetRMS;
     this._gain = 1;
-    this.maxGain = 8;   // +18 dB ceiling, avoid runaway amplification of noise floor
+    this.maxGain = 2.5; // Avoid making residual fan noise loud in pauses.
     this.minGain = 0.1; // -20 dB floor
   }
 

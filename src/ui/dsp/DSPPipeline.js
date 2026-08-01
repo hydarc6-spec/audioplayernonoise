@@ -7,6 +7,7 @@ import { SpectralNoiseSuppressor } from './SpectralNoiseSuppressor.js';
 import { WienerFilter } from './WienerFilter.js';
 import { AGC } from './AGC.js';
 import { SoftLimiter } from './SoftLimiter.js';
+import { VoiceGate } from './VoiceGate.js';
 
 // Flip to swap the Wiener stage for an RNNoise WASM module implementing
 // the same { enabled, process(re, im) } interface. See WienerFilter.js.
@@ -48,6 +49,7 @@ export class DSPPipeline {
     this.highPass = new HighPassFilter(sampleRate, 80);
     this.notch = new AdaptiveNotchFilter(sampleRate, 'auto', 3);
     this.agc = new AGC(sampleRate);
+    this.voiceGate = new VoiceGate(sampleRate);
     this.limiter = new SoftLimiter(0.89);
 
     // Spectral stages (run inside the STFT callback).
@@ -87,6 +89,8 @@ export class DSPPipeline {
     });
     block.set(this._scratchOut);
 
+    this.voiceGate.process(block);
+
     // Stages 6-7: time domain, run last on the cleaned+enhanced signal.
     this.agc.process(block);
     this.limiter.process(block);
@@ -112,7 +116,18 @@ export class DSPPipeline {
       if (settings.voiceEnhancement !== undefined) this.wiener.setVoiceEnhancement(settings.voiceEnhancement);
     }
 
+    if (settings.voiceGateEnabled !== undefined) this.voiceGate.enabled = settings.voiceGateEnabled;
+    if (settings.voiceGateAmount !== undefined) this.voiceGate.setAmount(settings.voiceGateAmount);
+
     if (settings.agcEnabled !== undefined) this.agc.enabled = settings.agcEnabled;
     if (settings.limiterEnabled !== undefined) this.limiter.enabled = settings.limiterEnabled;
+  }
+
+  reset() {
+    this.dcBlocker.reset();
+    this.highPass.reset();
+    this.agc.reset();
+    this.voiceGate.reset();
+    this._ola.reset();
   }
 }
