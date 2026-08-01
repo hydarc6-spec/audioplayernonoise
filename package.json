@@ -1,0 +1,18 @@
+{
+  "name": "realtime-denoise-audio-player",
+  "version": "1.0.0",
+  "description": "Cross-platform audio player with real-time microphone-grade noise reduction DSP applied during playback of AMR (and other) audio files.",
+  "type": "module",
+  "scripts": {
+    "serve": "npx serve src/ui -l 8080",
+    "serve:python": "python3 -m http.server --directory src/ui 8080"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

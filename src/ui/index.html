@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-Time Denoise Audio Player</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Real-Time Denoise Player</h1>
+      <p class="subtitle">AMR-aware playback with a live 7-stage DSP chain</p>
+    </header>
+
+    <section id="dropzone">
+      <input type="file" id="fileInput" accept=".amr,.wav,.mp3,.m4a,.ogg,.flac" style="position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;" />
+      <p>Drop an audio file here, or <label id="browseBtn" for="fileInput">browse</label></p>
+      <p id="fileInfo" class="muted"></p>
+    </section>
+
+    <section id="transport">
+      <button id="playBtn" disabled>▶ Play</button>
+      <button id="pauseBtn" disabled>⏸ Pause</button>
+      <input type="range" id="seekBar" min="0" max="1" step="0.01" value="0" disabled />
+      <span id="timeLabel">0:00 / 0:00</span>
+
+      <div class="ab-switch">
+        <label><input type="radio" name="mode" value="original" /> Original</label>
+        <label><input type="radio" name="mode" value="processed" checked /> Processed</label>
+      </div>
+    </section>
+
+    <section id="visualizers">
+      <div class="viz-block">
+        <h3>Waveform</h3>
+        <canvas id="waveformCanvas" width="900" height="140"></canvas>
+      </div>
+      <div class="viz-block">
+        <h3>Spectrum</h3>
+        <canvas id="spectrumCanvas" width="900" height="140"></canvas>
+      </div>
+    </section>
+
+    <section id="controls"></section>
+  </div>
+
+  <div id="errorBanner" style="display:none; position:fixed; top:0; left:0; right:0; background:#4a0f0f; color:#ffb3b3; padding:12px 16px; font-family:monospace; font-size:13px; white-space:pre-wrap; z-index:9999; border-bottom:2px solid #ff4d4d;"></div>
+  <script>
+    // Surfaces any load-time or runtime JS error directly on the page,
+    // so problems (e.g. a broken import path) are visible without
+    // needing to open DevTools. Safe to leave in during development;
+    // remove this block for a production build if you don't want it.
+    function showError(msg) {
+      const el = document.getElementById('errorBanner');
+      el.style.display = 'block';
+      el.textContent = 'App error: ' + msg;
+    }
+    window.addEventListener('error', (e) => showError(e.message + ' (' + e.filename + ':' + e.lineno + ')'));
+    window.addEventListener('unhandledrejection', (e) => showError((e.reason && e.reason.message) || String(e.reason)));
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
