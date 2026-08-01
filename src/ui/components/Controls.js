@@ -44,6 +44,17 @@ export function renderControls(container, initialSettings, onChange) {
   );
 
   container.appendChild(
+    _card('Air / Hiss Filter', initialSettings.lowPassEnabled, (enabled) =>
+      onChange({ lowPassEnabled: enabled }),
+      [
+        _slider('Voice bandwidth (Hz)', 3500, 12000, initialSettings.lowPassCutoffHz, 100, (v) =>
+          onChange({ lowPassCutoffHz: v })
+        ),
+      ]
+    )
+  );
+
+  container.appendChild(
     _card('Spectral Noise Suppression', initialSettings.noiseSuppressionEnabled, (enabled) =>
       onChange({ noiseSuppressionEnabled: enabled }),
       [

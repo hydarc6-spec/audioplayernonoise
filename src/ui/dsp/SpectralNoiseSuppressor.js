@@ -39,9 +39,13 @@ export class SpectralNoiseSuppressor {
     this.strength = Math.min(1, Math.max(0, pct0to100 / 100));
   }
 
-  _updateNoiseEstimate(mag) {
+  _updateNoiseEstimate(mag, peakProtectionThreshold = Infinity) {
     const cur = this._minHistory[this._historyIdx];
-    cur.set(mag);
+    for (let b = 0; b < this._numBins; b++) {
+      // Keep the speech harmonics out of the noise model, while still
+      // learning the weaker surrounding fan/air noise during speech.
+      if (mag[b] < peakProtectionThreshold) cur[b] = mag[b];
+    }
     this._historyIdx = (this._historyIdx + 1) % this._minHistoryLen;
 
     for (let b = 0; b < this._numBins; b++) {
@@ -80,13 +84,13 @@ export class SpectralNoiseSuppressor {
     // model to alternately remove and restore a clean voice every STFT hop.
     const meanMagnitude = magnitudeSum / numBins;
     const voicedFrame = peakMagnitude > meanMagnitude * 6;
-    if (!voicedFrame) this._updateNoiseEstimate(mag);
+    this._updateNoiseEstimate(mag, voicedFrame ? meanMagnitude * 3 : Infinity);
 
     // Over-subtraction factor and spectral floor both scale with `strength`:
     // higher strength => subtract more of the noise estimate, and allow the
     // result to be pushed further down before floor-clamping kicks in.
-    const overSubtraction = 1 + 2.5 * this.strength; // 1x (off) .. 3.5x (max)
-    const spectralFloor = 0.25 - 0.2 * this.strength; // 0.25 (gentle) .. 0.05 (aggressive)
+    const overSubtraction = 1 + 3.5 * this.strength; // 1x (off) .. 4.5x (max)
+    const spectralFloor = 0.25 - 0.22 * this.strength; // 0.25 (gentle) .. 0.03 (max)
 
     for (let b = 0; b < numBins; b++) {
       const targetGain = Math.max(

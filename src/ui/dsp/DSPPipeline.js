@@ -2,6 +2,7 @@ import { FFT } from './FFT.js';
 import { OverlapAddFramework } from './OverlapAddFramework.js';
 import { DCBlocker } from './DCBlocker.js';
 import { HighPassFilter } from './HighPassFilter.js';
+import { LowPassFilter } from './LowPassFilter.js';
 import { AdaptiveNotchFilter } from './NotchFilter.js';
 import { SpectralNoiseSuppressor } from './SpectralNoiseSuppressor.js';
 import { WienerFilter } from './WienerFilter.js';
@@ -47,6 +48,7 @@ export class DSPPipeline {
     // then 6 -> 7 after the FFT, on every hop).
     this.dcBlocker = new DCBlocker(sampleRate);
     this.highPass = new HighPassFilter(sampleRate, 80);
+    this.lowPass = new LowPassFilter(sampleRate, 7000);
     this.notch = new AdaptiveNotchFilter(sampleRate, 'auto', 3);
     this.agc = new AGC(sampleRate);
     this.voiceGate = new VoiceGate(sampleRate);
@@ -81,6 +83,7 @@ export class DSPPipeline {
     this.dcBlocker.process(block);
     this.highPass.process(block);
     this.notch.process(block);
+    this.lowPass.process(block);
 
     // Stages 4-5: spectral domain via shared STFT.
     this._ola.process(block, this._scratchOut, (re, im) => {
@@ -105,6 +108,9 @@ export class DSPPipeline {
     if (settings.highPassEnabled !== undefined) this.highPass.enabled = settings.highPassEnabled;
     if (settings.highPassCutoffHz !== undefined) this.highPass.setCutoff(settings.highPassCutoffHz);
 
+    if (settings.lowPassEnabled !== undefined) this.lowPass.enabled = settings.lowPassEnabled;
+    if (settings.lowPassCutoffHz !== undefined) this.lowPass.setCutoff(settings.lowPassCutoffHz);
+
     if (settings.notchEnabled !== undefined) this.notch.enabled = settings.notchEnabled;
     if (settings.notchMode !== undefined) this.notch.setMode(settings.notchMode);
 
@@ -126,6 +132,7 @@ export class DSPPipeline {
   reset() {
     this.dcBlocker.reset();
     this.highPass.reset();
+    this.lowPass.reset();
     this.agc.reset();
     this.voiceGate.reset();
     this._ola.reset();

@@ -1,0 +1,17 @@
+{
+  "name": "Clean Voice Player",
+  "short_name": "Clean Voice",
+  "description": "An offline-ready voice player with real-time noise reduction.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1216",
+  "theme_color": "#0f1216",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

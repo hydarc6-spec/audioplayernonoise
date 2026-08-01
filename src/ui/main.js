@@ -14,6 +14,24 @@ const pauseBtn = document.getElementById('pauseBtn');
 const seekBar = document.getElementById('seekBar');
 const timeLabel = document.getElementById('timeLabel');
 const controlsContainer = document.getElementById('controls');
+const installBtn = document.getElementById('installBtn');
+
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPrompt = event;
+  installBtn.hidden = false;
+});
+installBtn.addEventListener('click', async () => {
+  if (!installPrompt) return;
+  await installPrompt.prompt();
+  installPrompt = null;
+  installBtn.hidden = true;
+});
+window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js'));
+}
 
 const waveformView = new WaveformView(document.getElementById('waveformCanvas'));
 const spectrumView = new SpectrumView(document.getElementById('spectrumCanvas'));

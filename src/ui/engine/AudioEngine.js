@@ -45,11 +45,13 @@ export class AudioEngine {
     return {
       dcBlockerEnabled: true,
       highPassEnabled: true,
-      highPassCutoffHz: 110,
+      highPassCutoffHz: 140,
+      lowPassEnabled: true,
+      lowPassCutoffHz: 7000,
       notchEnabled: true,
       notchMode: 'auto', // 'auto' | 50 | 60
       noiseSuppressionEnabled: true,
-      noiseReductionStrength: 78, // Strong fan/hiss reduction without hollow speech.
+      noiseReductionStrength: 85,
       voiceEnhancementEnabled: true,
       voiceEnhancement: 45,
       voiceGateEnabled: true,

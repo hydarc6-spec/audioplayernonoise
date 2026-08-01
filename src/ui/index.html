@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Real-Time Denoise Audio Player</title>
+  <meta name="theme-color" content="#0f1216" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,6 +15,7 @@
     <header>
       <h1>Real-Time Denoise Player</h1>
       <p class="subtitle">AMR-aware playback with a live 7-stage DSP chain</p>
+      <button id="installBtn" class="install-button" hidden>Install app</button>
     </header>
 
     <section id="dropzone">
