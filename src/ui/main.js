@@ -56,7 +56,10 @@ async function handleFile(file) {
   playBtn.disabled = pauseBtn.disabled = seekBar.disabled = true;
   try {
     const info = await engine.loadFile(file, (p) => {
-      fileInfo.textContent = `${p.stage === 'decoding' ? 'Decoding' : 'Ready'}: "${file.name}"`;
+      const label = p.stage === 'decoding' ? 'Decoding'
+        : p.stage === 'analyzing' ? 'Analyzing background noise'
+        : 'Ready';
+      fileInfo.textContent = `${label}: "${file.name}"`;
     });
     fileInfo.textContent =
       `"${file.name}" — ${info.format.toUpperCase()}, ${info.sampleRate} Hz, ${info.duration.toFixed(1)}s`;
@@ -86,7 +89,7 @@ document.querySelectorAll('input[name="mode"]').forEach((radio) => {
   });
 });
 
-// ---- Controls (7 DSP stages) ----
+// ---- Controls (8 DSP stages) ----
 renderControls(controlsContainer, engine.settings, (partial) => engine.updateSettings(partial));
 
 // ---- Render loop: waveform, spectrum, transport time/seek position ----

@@ -1,4 +1,5 @@
 import { AudioLoader } from '../decoder/AudioLoader.js';
+import { NoiseProfiler } from '../dsp/NoiseProfiler.js';
 import denoiseWorkletUrl from '../dsp/dsp-worklet-processor.js?worker&url';
 
 /**
@@ -52,11 +53,13 @@ export class AudioEngine {
       notchEnabled: true,
       notchMode: 'auto', // 'auto' | 50 | 60
       noiseSuppressionEnabled: true,
-      noiseReductionStrength: 85,
+      noiseReductionStrength: 90,
       voiceEnhancementEnabled: true,
-      voiceEnhancement: 45,
+      voiceEnhancement: 60,
+      clarityEnabled: true,
+      clarityAmount: 50, // ~4dB presence boost, aids intelligibility of content
       voiceGateEnabled: true,
-      voiceGateAmount: 60,
+      voiceGateAmount: 75,
       agcEnabled: true,
       limiterEnabled: true,
     };
@@ -87,8 +90,35 @@ export class AudioEngine {
     const { audioBuffer, format } = await AudioLoader.load(file, this.audioContext);
     this.audioBuffer = audioBuffer; // treated as read-only from here on
     this.format = format;
+
+    // Offline whole-file noise profiling: unlike the real-time worklet
+    // path, we have the entire decoded recording available right now, so
+    // we can scan it once for a much more robust per-bin noise floor
+    // than a causal (playback-time-only) estimator could ever get, and
+    // use it to seed/anchor the pipeline (see SpectralNoiseSuppressor /
+    // NoiseProfiler). This is what lets suppression be at full strength
+    // from t=0 instead of ramping up over the first ~1.5s of playback.
+    onProgress?.({ stage: 'analyzing' });
+    this.noiseProfile = NoiseProfiler.computeProfile(
+      AudioEngine._mixdownMono(audioBuffer),
+      audioBuffer.sampleRate
+    );
+
     onProgress?.({ stage: 'ready' });
     return { duration: audioBuffer.duration, sampleRate: audioBuffer.sampleRate, format };
+  }
+
+  /** Mixes all channels of an AudioBuffer down to a single mono Float32Array. */
+  static _mixdownMono(audioBuffer) {
+    const n = audioBuffer.numberOfChannels;
+    if (n === 1) return audioBuffer.getChannelData(0);
+    const len = audioBuffer.length;
+    const mono = new Float32Array(len);
+    for (let ch = 0; ch < n; ch++) {
+      const data = audioBuffer.getChannelData(ch);
+      for (let i = 0; i < len; i++) mono[i] += data[i] / n;
+    }
+    return mono;
   }
 
   _buildGraph(startOffsetSeconds) {
@@ -114,6 +144,11 @@ export class AudioEngine {
       outputChannelCount: [this.audioBuffer.numberOfChannels],
     });
     this.workletNode.port.postMessage({ type: 'settings', payload: this.settings });
+    if (this.noiseProfile) {
+      // Plain Array for postMessage structured-clone reliability; the
+      // worklet reconstitutes it with Float32Array.from().
+      this.workletNode.port.postMessage({ type: 'noiseProfile', payload: Array.from(this.noiseProfile) });
+    }
 
     // Dry path: source -> dryGain -> analyserDry -> master
     this.sourceNode.connect(this.dryGain);

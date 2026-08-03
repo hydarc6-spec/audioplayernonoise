@@ -77,6 +77,17 @@ export function renderControls(container, initialSettings, onChange) {
   );
 
   container.appendChild(
+    _card('Speech Clarity (Presence Boost)', initialSettings.clarityEnabled, (enabled) =>
+      onChange({ clarityEnabled: enabled }),
+      [
+        _slider('Amount', 0, 100, initialSettings.clarityAmount, 1, (v) =>
+          onChange({ clarityAmount: v })
+        ),
+      ]
+    )
+  );
+
+  container.appendChild(
     _card('Automatic Gain Control', initialSettings.agcEnabled, (enabled) =>
       onChange({ agcEnabled: enabled })
     )

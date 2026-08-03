@@ -9,6 +9,7 @@ import { WienerFilter } from './WienerFilter.js';
 import { AGC } from './AGC.js';
 import { SoftLimiter } from './SoftLimiter.js';
 import { VoiceGate } from './VoiceGate.js';
+import { SpeechClarityFilter } from './SpeechClarityFilter.js';
 
 // Flip to swap the Wiener stage for an RNNoise WASM module implementing
 // the same { enabled, process(re, im) } interface. See WienerFilter.js.
@@ -19,14 +20,16 @@ const FFT_SIZE = 512; // 10.67 ms @ 48kHz analysis window
 /**
  * DSPPipeline.js
  * --------------
- * Wires the seven processing stages together in the order specified:
+ * Wires the processing stages together in the order specified:
  *   1. DC offset removal
  *   2. High-pass filter
  *   3. Adaptive notch filter (mains hum + harmonics)
  *   4. Spectral noise suppression (FFT)
  *   5. Wiener filter (speech enhancement) [or RNNoise]
- *   6. Automatic gain control
- *   7. Soft limiter
+ *   6. Speech clarity boost (presence-band EQ, see SpeechClarityFilter.js)
+ *   7. Quiet-section noise gate
+ *   8. Automatic gain control
+ *   9. Soft limiter
  *
  * Deliberately engine-agnostic: it doesn't know about AudioWorklet,
  * AudioContext, or the DOM, so it's unit-testable on the main thread and
@@ -34,7 +37,7 @@ const FFT_SIZE = 512; // 10.67 ms @ 48kHz analysis window
  * process, a React Native audio module, etc). `dsp-worklet-processor.js`
  * is the thin adapter that plugs this into the real-time audio thread.
  *
- * Stages 1-3 and 6-7 are simple per-sample/per-block time-domain filters
+ * Stages 1-3 and 6-9 are simple per-sample/per-block time-domain filters
  * and run directly on each incoming hop. Stages 4-5 are spectral and
  * share one OverlapAddFramework (STFT) instance so the FFT/IFFT cost is
  * paid once per hop, not twice.
@@ -45,11 +48,12 @@ export class DSPPipeline {
     this.hopSize = hopSize;
 
     // Time-domain stages (run in signal order 1 -> 2 -> 3 before the FFT,
-    // then 6 -> 7 after the FFT, on every hop).
+    // then 6 -> 9 after the FFT, on every hop).
     this.dcBlocker = new DCBlocker(sampleRate);
     this.highPass = new HighPassFilter(sampleRate, 80);
     this.lowPass = new LowPassFilter(sampleRate, 7000);
     this.notch = new AdaptiveNotchFilter(sampleRate, 'auto', 3);
+    this.clarity = new SpeechClarityFilter(sampleRate);
     this.agc = new AGC(sampleRate);
     this.voiceGate = new VoiceGate(sampleRate);
     this.limiter = new SoftLimiter(0.89);
@@ -58,6 +62,7 @@ export class DSPPipeline {
     this._fft = new FFT(FFT_SIZE);
     this._ola = new OverlapAddFramework(this._fft, hopSize);
     this.noiseSuppressor = new SpectralNoiseSuppressor(FFT_SIZE);
+    this.noiseSuppressor.setHopSeconds(hopSize / sampleRate);
     this.wiener = USE_RNNOISE ? null /* RNNoiseAdapter would go here */
                                : new WienerFilter(FFT_SIZE, this.noiseSuppressor);
 
@@ -92,9 +97,14 @@ export class DSPPipeline {
     });
     block.set(this._scratchOut);
 
+    // Stage 6: restore consonant/presence energy the spectral stages
+    // tend to shave along with the noise, before the gate/AGC/limiter
+    // shape final level.
+    this.clarity.process(block);
+
     this.voiceGate.process(block);
 
-    // Stages 6-7: time domain, run last on the cleaned+enhanced signal.
+    // Stages 8-9: time domain, run last on the cleaned+enhanced signal.
     this.agc.process(block);
     this.limiter.process(block);
 
@@ -122,6 +132,9 @@ export class DSPPipeline {
       if (settings.voiceEnhancement !== undefined) this.wiener.setVoiceEnhancement(settings.voiceEnhancement);
     }
 
+    if (settings.clarityEnabled !== undefined) this.clarity.enabled = settings.clarityEnabled;
+    if (settings.clarityAmount !== undefined) this.clarity.setAmount(settings.clarityAmount);
+
     if (settings.voiceGateEnabled !== undefined) this.voiceGate.enabled = settings.voiceGateEnabled;
     if (settings.voiceGateAmount !== undefined) this.voiceGate.setAmount(settings.voiceGateAmount);
 
@@ -133,8 +146,19 @@ export class DSPPipeline {
     this.dcBlocker.reset();
     this.highPass.reset();
     this.lowPass.reset();
+    this.clarity.reset();
     this.agc.reset();
     this.voiceGate.reset();
     this._ola.reset();
+  }
+
+  /**
+   * Seeds the spectral noise suppressor's floor estimate from an offline
+   * whole-file profile (see NoiseProfiler.js), so suppression is at full
+   * strength immediately instead of ramping up over the first ~1.5s.
+   * @param {Float32Array} profile From NoiseProfiler.computeProfile().
+   */
+  seedNoiseProfile(profile) {
+    this.noiseSuppressor.seedNoiseFloor(profile);
   }
 }

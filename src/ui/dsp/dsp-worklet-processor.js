@@ -29,6 +29,12 @@ class DenoiseProcessor extends AudioWorkletProcessor {
         this._pipeline.applySettings(payload);
       } else if (type === 'reset') {
         this._pipeline.reset();
+      } else if (type === 'noiseProfile') {
+        // payload is a plain array (Float32Array doesn't structured-clone
+        // as itself across the postMessage boundary reliably in all
+        // browsers unless transferred; a plain array is simplest here
+        // since this only happens once per loaded file).
+        this._pipeline.seedNoiseProfile(Float32Array.from(payload));
       }
     };
   }
