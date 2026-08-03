@@ -18,8 +18,8 @@ const WORKLET_QUANTUM = 128; // fixed by the Web Audio spec
 class DenoiseProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    const sampleRate = options.processorOptions?.sampleRate ?? sampleRate; // global `sampleRate` is provided by the worklet scope
-    this._pipeline = new DSPPipeline(sampleRate, WORKLET_QUANTUM);
+    const processingSampleRate = options.processorOptions?.sampleRate ?? globalThis.sampleRate;
+    this._pipeline = new DSPPipeline(processingSampleRate, WORKLET_QUANTUM);
 
     // Settings + bypass updates arrive as messages from the main thread
     // (posted by AudioEngine whenever a UI control changes).

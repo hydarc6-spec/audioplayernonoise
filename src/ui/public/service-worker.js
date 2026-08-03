@@ -1,4 +1,5 @@
-const CACHE_NAME = 'clean-voice-player-v1';
+// Increment when a release needs to replace a previously cached app shell.
+const CACHE_NAME = 'clean-voice-player-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

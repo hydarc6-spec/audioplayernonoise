@@ -1,4 +1,5 @@
 import { AudioLoader } from '../decoder/AudioLoader.js';
+import denoiseWorkletUrl from '../dsp/dsp-worklet-processor.js?worker&url';
 
 /**
  * AudioEngine.js
@@ -63,10 +64,17 @@ export class AudioEngine {
 
   async _ensureContext() {
     if (this.audioContext) return;
-    this.audioContext = new AudioContext({ latencyHint: 'interactive' });
-    await this.audioContext.audioWorklet.addModule(
-      new URL('../dsp/dsp-worklet-processor.js', import.meta.url)
-    );
+    const context = new AudioContext({ latencyHint: 'interactive' });
+    try {
+      // `?worker&url` makes Vite bundle the worklet and all of its static
+      // DSP imports into one standalone module. Loading the raw source as a
+      // data URL leaves `./DSPPipeline.js` without a hierarchical base URL.
+      await context.audioWorklet.addModule(denoiseWorkletUrl);
+      this.audioContext = context;
+    } catch (error) {
+      await context.close();
+      throw error;
+    }
   }
 
   /**
